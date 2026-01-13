@@ -214,12 +214,12 @@ try {
                                             $opening = new DateTime($session['opening_time']);
                                             $closing = new DateTime($session['closing_time']);
                                             $duration = $closing->diff($opening);
-                                            echo $duration->format('%h h %i min');
+                                            echo '<span class="duration-closed">' . $duration->format('%h h %i min') . '</span>';
                                         } else {
                                             $opening = new DateTime($session['opening_time']);
                                             $now = new DateTime();
                                             $duration = $now->diff($opening);
-                                            echo $duration->format('%h h %i min');
+                                            echo '<span class="duration-open" data-opening="' . $opening->format('Y-m-d H:i:s') . '">' . $duration->format('%h h %i min') . '</span>';
                                         }
                                         ?>
                                     </td>
@@ -292,6 +292,39 @@ try {
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Mettre à jour la durée des sessions ouvertes en temps réel
+function updateDurations() {
+    const durationElements = document.querySelectorAll('.duration-open');
+    
+    durationElements.forEach(element => {
+        const openingTime = new Date(element.dataset.opening);
+        const now = new Date();
+        const duration = now - openingTime;
+        
+        // Calculer heures et minutes
+        const hours = Math.floor(duration / (1000 * 60 * 60));
+        const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+        
+        // Formater l'affichage
+        let durationText = '';
+        if (hours > 0) {
+            durationText = hours + ' h ';
+        }
+        if (minutes > 0 || hours === 0) {
+            durationText += minutes + ' min';
+        }
+        
+        element.textContent = durationText;
+    });
+}
+
+// Mettre à jour toutes les 30 secondes
+setInterval(updateDurations, 30000);
+
+// Mettre à jour immédiatement au chargement
+document.addEventListener('DOMContentLoaded', updateDurations);
+</script>
 </body>
 </html>
 

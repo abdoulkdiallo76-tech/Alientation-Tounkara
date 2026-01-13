@@ -1,14 +1,14 @@
 <?php
 require_once 'config/database.php';
+requireLogin();
+
 $page_title = 'Gestion des dépenses';
 
-// Vérifier les droits d'accès AVANT d'inclure le header
+// Vérifier les droits d'accès
 if (isCashier()) {
     header('Location: pos.php');
     exit();
 }
-
-require_once 'includes/header.php';
 
 $action = $_GET['action'] ?? 'list';
 $expense_id = $_GET['id'] ?? 0;
@@ -16,9 +16,6 @@ $expense_id = $_GET['id'] ?? 0;
 // Traitement des actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_expense']) || isset($_POST['edit_expense'])) {
-        require_once 'config/database.php';
-        requireLogin();
-        
         $description = cleanInput($_POST['description']);
         $amount = floatval($_POST['amount']);
         $category = cleanInput($_POST['category']);
@@ -29,12 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_POST['add_expense'])) {
                 $stmt = $pdo->prepare("INSERT INTO expenses (description, amount, category, expense_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$description, $amount, $category, $expense_date, $notes, $_SESSION['user_id']]);
-                $success = 'Dépense ajoutée avec succès';
+                $_SESSION['success'] = 'Dépense ajoutée avec succès';
             } else {
                 $expense_id = intval($_POST['expense_id']);
                 $stmt = $pdo->prepare("UPDATE expenses SET description=?, amount=?, category=?, expense_date=?, notes=? WHERE id=?");
                 $stmt->execute([$description, $amount, $category, $expense_date, $notes, $expense_id]);
-                $success = 'Dépense modifiée avec succès';
+                $_SESSION['success'] = 'Dépense modifiée avec succès';
             }
             
             header('Location: expenses.php');
@@ -47,28 +44,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (isset($_POST['delete_expense'])) {
-        require_once 'config/database.php';
-        requireLogin();
-        
         $expense_id = intval($_POST['expense_id']);
         try {
-            $stmt = $pdo->prepare("DELETE FROM expenses WHERE id = ?");
+            $stmt = $pdo->prepare("DELETE FROM expenses WHERE id=?");
             $stmt->execute([$expense_id]);
-            $success = 'Dépense supprimée avec succès';
+            $_SESSION['success'] = 'Dépense supprimée avec succès';
+            header('Location: expenses.php');
+            exit();
         } catch(PDOException $e) {
             $_SESSION['error'] = 'Erreur: ' . $e->getMessage();
+            header('Location: expenses.php');
+            exit();
         }
-        header('Location: expenses.php');
-        exit();
     }
 }
 
+// Maintenant inclure le header après tous les traitements
 require_once 'includes/header.php';
 
 // Check for session errors from POST processing
 if (isset($_SESSION['error'])) {
     $error = $_SESSION['error'];
     unset($_SESSION['error']);
+}
+if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
 }
 
 // Récupération des données

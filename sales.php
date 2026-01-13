@@ -55,7 +55,8 @@ try {
     // Récupérer les sessions de caisse pour le filtre
     $sessions = [];
     if ($cash_session_column_exists) {
-        $stmt = $pdo->prepare("SELECT cs.id, DATE(cs.opening_time) as session_date, cs.opening_time, cs.status, u.full_name as cashier_name
+        $stmt = $pdo->prepare("SELECT cs.id, DATE(cs.opening_time) as session_date, cs.opening_time, cs.status, u.full_name as cashier_name,
+                                CONCAT('Session du ', DATE(cs.opening_time)) as session_info
                                 FROM cash_sessions cs 
                                 LEFT JOIN users u ON cs.cashier_id = u.id 
                                 ORDER BY cs.opening_time DESC LIMIT 50");

@@ -1,14 +1,14 @@
 <?php
 require_once 'config/database.php';
+requireLogin();
+
 $page_title = 'Gestion des produits';
 
-// Vérifier les droits d'accès AVANT d'inclure le header
+// Vérifier les droits d'accès
 if (isCashier()) {
     header('Location: pos.php');
     exit();
 }
-
-require_once 'includes/header.php';
 
 $action = $_GET['action'] ?? 'list';
 $product_id = $_GET['id'] ?? 0;
@@ -18,6 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_product']) || isset($_POST['edit_product'])) {
         $name = cleanInput($_POST['name']);
         $barcode = cleanInput($_POST['barcode']);
+        
+        // Générer un barcode automatique si vide
+        if (empty($barcode)) {
+            $barcode = 'AUTO_' . time() . '_' . rand(1000, 9999);
+        }
+        
         $description = cleanInput($_POST['description']);
         $category_id = intval($_POST['category_id']);
         $purchase_price = floatval($_POST['purchase_price']);
@@ -36,18 +42,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("INSERT INTO stock_movements (product_id, movement_type, quantity, reason, created_by) VALUES (?, 'in', ?, 'Stock initial', ?)");
                 $stmt->execute([$product_id, $stock_quantity, $_SESSION['user_id']]);
                 
-                $success = 'Produit ajouté avec succès';
+                $_SESSION['success'] = 'Produit ajouté avec succès';
             } else {
                 $product_id = intval($_POST['product_id']);
                 $stmt = $pdo->prepare("UPDATE products SET name=?, barcode=?, description=?, category_id=?, purchase_price=?, selling_price=?, stock_quantity=?, min_stock_alert=?, unit=?, updated_at=NOW() WHERE id=?");
                 $stmt->execute([$name, $barcode, $description, $category_id, $purchase_price, $selling_price, $stock_quantity, $min_stock_alert, $unit, $product_id]);
-                $success = 'Produit modifié avec succès';
+                $_SESSION['success'] = 'Produit modifié avec succès';
             }
             
             header('Location: products.php');
             exit();
         } catch(PDOException $e) {
-            $error = 'Erreur: ' . $e->getMessage();
+            // Gérer spécifiquement l'erreur de duplication de barcode
+            if ($e->getCode() == 23000 && strpos($e->getMessage(), 'barcode') !== false) {
+                $_SESSION['error'] = 'Ce code-barres existe déjà. Veuillez utiliser un autre code-barres ou laissez le champ vide pour en générer un automatiquement.';
+            } else {
+                $_SESSION['error'] = 'Erreur: ' . $e->getMessage();
+            }
+            header('Location: products.php');
+            exit();
         }
     }
     
@@ -56,14 +69,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $stmt = $pdo->prepare("UPDATE products SET is_active = 0 WHERE id = ?");
             $stmt->execute([$product_id]);
-            $success = 'Produit supprimé avec succès';
+            $_SESSION['success'] = 'Produit supprimé avec succès';
             header('Location: products.php');
             exit();
         } catch(PDOException $e) {
-            $error = 'Erreur: ' . $e->getMessage();
+            $_SESSION['error'] = 'Erreur: ' . $e->getMessage();
+            header('Location: products.php');
+            exit();
         }
     }
 }
+
+// Maintenant inclure le header après tous les traitements
+require_once 'includes/header.php';
 
 // Récupération des données
 if ($action === 'edit' && $product_id > 0) {
